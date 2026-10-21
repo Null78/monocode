@@ -163,6 +163,13 @@ export function BranchPicker({
     }));
   }, [branch, projectBranches, query]);
 
+  // The backend sorts the default remote's entry first, so the first name
+  // match is the one to badge even when several remotes share the name.
+  const defaultEntry =
+    projectBranches?.branches.find(
+      (entry) => entry.name === projectBranches.defaultBranch,
+    ) ?? null;
+
   useEffect(() => {
     setActive((i) => (rows.length === 0 ? 0 : Math.min(i, rows.length - 1)));
   }, [rows.length]);
@@ -400,7 +407,7 @@ export function BranchPicker({
             busy={busy}
             emptyLabel={query.trim() ? "No matching branches" : "No branches"}
             onActive={setActive}
-            defaultBranch={projectBranches?.defaultBranch ?? null}
+            defaultBranch={defaultEntry}
             onPick={pick}
           />
           {error ? (
@@ -445,7 +452,7 @@ function BranchList({
   active: number;
   busy: boolean;
   emptyLabel: string;
-  defaultBranch: string | null;
+  defaultBranch: GitBranchInfo | null;
   onActive: (index: number) => void;
   onPick: (row: BranchRow) => void;
 }) {
@@ -504,7 +511,8 @@ function BranchList({
             >
               {row.branch.name}
             </span>
-            {row.branch.name === defaultBranch ? (
+            {row.branch.name === defaultBranch?.name &&
+            row.branch.remote === defaultBranch.remote ? (
               <span className="shrink-0 rounded-full border border-stroke px-1.5 py-0.5 text-[10px] text-content/50">
                 default
               </span>
