@@ -222,3 +222,32 @@ it("checks out the highlighted matching branch when Enter is pressed", async () 
     "picker",
   );
 });
+
+it("badges the repository's default branch", async () => {
+  vi.mocked(gitBranches).mockResolvedValueOnce({
+    current: "feature/picker",
+    detached: false,
+    defaultBranch: "main",
+    branches: [
+      { name: "main", current: false, remote: null },
+      { name: "feature/picker", current: true, remote: null },
+    ],
+  });
+  act(() =>
+    root.render(
+      createElement(BranchPicker, {
+        cwd: "/repo-default-branch",
+        branch: "feature/picker",
+      }),
+    ),
+  );
+  await act(async () => {});
+  await act(async () => container.querySelector("button")!.click());
+
+  const options = [
+    ...document.querySelectorAll<HTMLElement>(
+      '[data-branch-picker] [role="option"]',
+    ),
+  ].map((option) => option.textContent);
+  expect(options).toEqual(["maindefault", "feature/picker"]);
+});

@@ -400,6 +400,7 @@ export function BranchPicker({
             busy={busy}
             emptyLabel={query.trim() ? "No matching branches" : "No branches"}
             onActive={setActive}
+            defaultBranch={projectBranches?.defaultBranch ?? null}
             onPick={pick}
           />
           {error ? (
@@ -436,6 +437,7 @@ function BranchList({
   active,
   busy,
   emptyLabel,
+  defaultBranch,
   onActive,
   onPick,
 }: {
@@ -443,6 +445,7 @@ function BranchList({
   active: number;
   busy: boolean;
   emptyLabel: string;
+  defaultBranch: string | null;
   onActive: (index: number) => void;
   onPick: (row: BranchRow) => void;
 }) {
@@ -501,6 +504,11 @@ function BranchList({
             >
               {row.branch.name}
             </span>
+            {row.branch.name === defaultBranch ? (
+              <span className="shrink-0 rounded-full border border-stroke px-1.5 py-0.5 text-[10px] text-content/50">
+                default
+              </span>
+            ) : null}
             {row.branch.remote ? (
               <span className="shrink-0 rounded bg-content/6 px-1.5 py-0.5 text-[10px] text-content/40">
                 {row.branch.remote}
