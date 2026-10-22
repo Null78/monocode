@@ -9360,6 +9360,8 @@ function Workspace({
           canDispatchQueuedHead(session) ||
           (monoForSession(session.id) &&
             canSteerQueuedHead(session) &&
+            // Managed submissions are refused mid-turn; wait for idle.
+            !queued[0].managed &&
             canSteerHarness(session.harness) &&
             !consumeOperatorCommand(queued[0].text).matched)
         ) ||
@@ -9387,6 +9389,7 @@ function Workspace({
               canDispatchQueuedHead(latest) ||
               (monoForSession(latest.id) &&
                 canSteerQueuedHead(latest) &&
+                !head.managed &&
                 canSteerHarness(latest.harness) &&
                 !consumeOperatorCommand(head.text).matched)
             )
