@@ -97,11 +97,14 @@ export function requeueUnsteered(
   session: Session,
   blockId: string,
   message: QueuedMessage,
+  paused = false,
 ): Session {
   return {
     ...session,
     blocks: session.blocks.filter((block) => block.id !== blockId),
     queuedMessages: [message, ...(session.queuedMessages ?? [])],
-    queueStatus: session.queueStatus === "paused" ? "paused" : "active",
+    // A stop that overtook the steer must not let it go out on its own.
+    queueStatus:
+      paused || session.queueStatus === "paused" ? "paused" : "active",
   };
 }

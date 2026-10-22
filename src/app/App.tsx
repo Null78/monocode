@@ -7580,6 +7580,7 @@ function Workspace({
         const steerBlockId = nextSessions
           .find((s) => s.id === sessionId)
           ?.blocks.slice(-1)[0]?.id;
+        const steerGen = turnGen.current.get(sessionId);
         void (async () => {
           try {
             const prepared = await prepareAttachments(attachments);
@@ -7606,17 +7607,23 @@ function Workspace({
             if (error instanceof TurnNotReadyError && steerBlockId) {
               const next = sessionsRef.current.map((s) =>
                 s.id === sessionId
-                  ? requeueUnsteered(s, steerBlockId, {
-                      id:
-                        options?.queuedMessageId ??
-                        options?.appRequestId ??
-                        crypto.randomUUID(),
-                      text,
-                      attachments,
-                      noteCard,
-                      handoffCard,
-                      intent,
-                    })
+                  ? requeueUnsteered(
+                      s,
+                      steerBlockId,
+                      {
+                        id:
+                          options?.queuedMessageId ??
+                          options?.appRequestId ??
+                          crypto.randomUUID(),
+                        text,
+                        attachments,
+                        noteCard,
+                        handoffCard,
+                        intent,
+                        appRequestId: options?.appRequestId,
+                      },
+                      turnGen.current.get(sessionId) !== steerGen,
+                    )
                   : s,
               );
               sessionsRef.current = next;
@@ -9407,6 +9414,10 @@ function Workspace({
                 noteCard: head.noteCard,
                 handoffCard: head.handoffCard,
                 intent: head.intent,
+                ...(head.managed ? { managed: true } : {}),
+                ...(head.appRequestId
+                  ? { appRequestId: head.appRequestId, followsUp: true }
+                  : {}),
                 ...(head.monoSessionCompletion
                   ? {
                       monoSessionCompletion: head.monoSessionCompletion,
@@ -11168,6 +11179,7 @@ function Workspace({
         const steerBlockId = next
           .find((entry) => entry.id === id)
           ?.blocks.slice(-1)[0]?.id;
+        const steerGen = turnGen.current.get(id);
         try {
           await steerHarnessTurn({
             harness: session.harness,
@@ -11183,11 +11195,17 @@ function Workspace({
           // The turn ended before the guidance landed; it becomes the next turn.
           const requeued = sessionsRef.current.map((entry) =>
             entry.id === id
-              ? requeueUnsteered(entry, steerBlockId, {
-                  id: crypto.randomUUID(),
-                  text,
-                  attachments: [],
-                })
+              ? requeueUnsteered(
+                  entry,
+                  steerBlockId,
+                  {
+                    id: crypto.randomUUID(),
+                    text,
+                    attachments: [],
+                    managed: true,
+                  },
+                  turnGen.current.get(id) !== steerGen,
+                )
               : entry,
           );
           sessionsRef.current = requeued;

@@ -197,5 +197,8 @@ describe("requeueUnsteered", () => {
       requeueUnsteered(chat({ queueStatus: "paused" }), "x", queued("c"))
         .queueStatus,
     ).toBe("paused");
+    expect(
+      requeueUnsteered(chat(), "x", queued("c"), true).queueStatus,
+    ).toBe("paused");
   });
 });
