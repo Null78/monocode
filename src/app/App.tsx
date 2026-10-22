@@ -357,6 +357,7 @@ import {
   stopHarnessTextPrompts,
   stopStreaming,
   pickTextHarness,
+  TurnNotReadyError,
   type ApprovalDecision,
   type HarnessEvent,
   type UserQuestionReply,
@@ -534,6 +535,7 @@ import {
   canSteerQueuedHead,
   dequeueQueuedMessage,
   queuedMessageForSubmit,
+  requeueUnsteered,
 } from "../features/sessions/model/messageQueue";
 import { deliverQueuedFollowUp } from "../features/sessions/model/queuedFollowUp";
 import {
@@ -7575,6 +7577,9 @@ function Workspace({
         });
         sessionsRef.current = nextSessions;
         setSessions(nextSessions);
+        const steerBlockId = nextSessions
+          .find((s) => s.id === sessionId)
+          ?.blocks.slice(-1)[0]?.id;
         void (async () => {
           try {
             const prepared = await prepareAttachments(attachments);
@@ -7596,6 +7601,28 @@ function Workspace({
               attachments: prepared,
             });
           } catch (error: unknown) {
+            // The turn ended (or had not started) before the steer landed.
+            // Send it as the next turn rather than dropping it.
+            if (error instanceof TurnNotReadyError && steerBlockId) {
+              const next = sessionsRef.current.map((s) =>
+                s.id === sessionId
+                  ? requeueUnsteered(s, steerBlockId, {
+                      id:
+                        options?.queuedMessageId ??
+                        options?.appRequestId ??
+                        crypto.randomUUID(),
+                      text,
+                      attachments,
+                      noteCard,
+                      handoffCard,
+                      intent,
+                    })
+                  : s,
+              );
+              sessionsRef.current = next;
+              setSessions(next);
+              return;
+            }
             const message =
               error instanceof Error
                 ? error.message
@@ -11138,14 +11165,34 @@ function Workspace({
         );
         sessionsRef.current = next;
         setSessions(next);
-        await steerHarnessTurn({
-          harness: session.harness,
-          sessionId: id,
-          cwd: sessionWorkCwd(session),
-          model: session.model,
-          modelSettings: session.modelSettings,
-          text,
-        });
+        const steerBlockId = next
+          .find((entry) => entry.id === id)
+          ?.blocks.slice(-1)[0]?.id;
+        try {
+          await steerHarnessTurn({
+            harness: session.harness,
+            sessionId: id,
+            cwd: sessionWorkCwd(session),
+            model: session.model,
+            modelSettings: session.modelSettings,
+            text,
+          });
+        } catch (error) {
+          if (!(error instanceof TurnNotReadyError) || !steerBlockId)
+            throw error;
+          // The turn ended before the guidance landed; it becomes the next turn.
+          const requeued = sessionsRef.current.map((entry) =>
+            entry.id === id
+              ? requeueUnsteered(entry, steerBlockId, {
+                  id: crypto.randomUUID(),
+                  text,
+                  attachments: [],
+                })
+              : entry,
+          );
+          sessionsRef.current = requeued;
+          setSessions(requeued);
+        }
       },
       respondApproval: (id, requestId, decision) => {
         const session = sessionsRef.current.find((entry) => entry.id === id);
